@@ -1,22 +1,16 @@
 #!/bin/bash
 set -euo pipefail
 
-# Ship Argon as the default LuCI theme. The package selection alone only
-# installs the theme and otherwise leaves LuCI using Bootstrap.
 sed -i "s|option mediaurlbase '/luci-static/bootstrap'|option mediaurlbase '/luci-static/argon'|" \
   feeds/luci/modules/luci-base/root/etc/config/luci
 
-rm -rf package/luci-app-openclash
-git clone --depth=1 https://github.com/vernesong/OpenClash.git /tmp/OpenClash
-cp -a /tmp/OpenClash/luci-app-openclash package/luci-app-openclash
-
-mkdir -p package/luci-app-openclash/root/etc/openclash/core
-curl --fail --location --retry 3 \
-  https://raw.githubusercontent.com/vernesong/OpenClash/core/master/meta/clash-linux-arm64.tar.gz \
-  -o /tmp/openclash-core.tar.gz
-tar -xzf /tmp/openclash-core.tar.gz -C /tmp
-install -m 0755 /tmp/clash package/luci-app-openclash/root/etc/openclash/core/clash_meta
-
-rm -rf package/luci-app-filemanager /tmp/luci-upstream
-git clone --depth=1 https://github.com/openwrt/luci.git /tmp/luci-upstream
-cp -a /tmp/luci-upstream/applications/luci-app-filemanager package/luci-app-filemanager
+mkdir -p package/base-files/files/etc/uci-defaults
+cat > package/base-files/files/etc/uci-defaults/99-enable-flow-offload <<'EOF'
+#!/bin/sh
+[ -n "$(uci -q get firewall.@defaults[0])" ] || exit 0
+uci -q set firewall.@defaults[0].flow_offloading='1'
+uci -q set firewall.@defaults[0].flow_offloading_hw='1'
+uci -q commit firewall
+exit 0
+EOF
+chmod 0755 package/base-files/files/etc/uci-defaults/99-enable-flow-offload
