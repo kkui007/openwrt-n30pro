@@ -118,13 +118,53 @@ jobs:
             echo 'Open-source kmod-mt7915e was unexpectedly selected' >&2
             exit 1
           fi
-          for p in store openclash turboacc-mtk samba4 ttyd nlbwmon upnp filemanager; do
-            require_config "CONFIG_PACKAGE_luci-app-$p"
+
+          # 必须有的：无线 / 硬件加速 / 你要的 5 个功能
+          for c in \
+            CONFIG_PACKAGE_mtwifi-cfg \
+            CONFIG_PACKAGE_luci-app-mtwifi-cfg \
+            CONFIG_PACKAGE_luci-theme-argon \
+            CONFIG_PACKAGE_kmod-mediatek_hnat \
+            CONFIG_PACKAGE_kmod-mtk_wed \
+            CONFIG_PACKAGE_luci-app-turboacc-mtk \
+            CONFIG_PACKAGE_kmod-wireguard \
+            CONFIG_PACKAGE_wireguard-tools \
+            CONFIG_PACKAGE_luci-proto-wireguard \
+            CONFIG_PACKAGE_luci-app-homeproxy \
+            CONFIG_PACKAGE_luci-app-vlmcsd \
+            CONFIG_PACKAGE_luci-app-frps \
+            CONFIG_PACKAGE_ttyd \
+            CONFIG_PACKAGE_luci-app-ttyd ; do
+            require_config "$c"
           done
-          require_config 'CONFIG_PACKAGE_luci-theme-argon'
-          require_config 'CONFIG_PACKAGE_luci-app-argon-config'
-          require_config 'CONFIG_PACKAGE_tailscale'
-          grep -E 'DEVICE_netcore_n30-pro|PACKAGE_kmod-mt_wifi=|PACKAGE_luci-app-(store|openclash|turboacc-mtk|samba4|ttyd|nlbwmon|upnp|filemanager)=|PACKAGE_tailscale=' .config
+
+          # 必须没有的：被精简掉的插件（防止 defconfig 又给开回来）
+          for c in \
+            CONFIG_PACKAGE_luci-app-store \
+            CONFIG_PACKAGE_luci-app-openclash \
+            CONFIG_PACKAGE_luci-app-samba4 \
+            CONFIG_PACKAGE_luci-app-nlbwmon \
+            CONFIG_PACKAGE_luci-app-upnp \
+            CONFIG_PACKAGE_luci-app-filemanager \
+            CONFIG_PACKAGE_luci-app-eqos-mtk \
+            CONFIG_PACKAGE_luci-app-wrtbwmon \
+            CONFIG_PACKAGE_kmod-usb-storage \
+            CONFIG_PACKAGE_tailscale ; do
+            if grep -q "^$c=y$" .config; then
+              echo "不该出现的包被打开了: $c=y" >&2
+              exit 1
+            fi
+          done
+
+          grep -E 'DEVICE_netcore_n30-pro|PACKAGE_kmod-mt_wifi=|PACKAGE_luci-app-(turboacc-mtk|homeproxy|frps|vlmcsd|ttyd|mtwifi-cfg)=|PACKAGE_luci-proto-wireguard=|PACKAGE_kmod-wireguard=' .config
+
+      - name: Upload resolved .config
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resolved-config
+          path: openwrt/.config
+          if-no-files-found: ignore
 
       - name: Optional tmate debugging
         uses: mxschmitt/action-tmate@v3
@@ -180,13 +220,15 @@ jobs:
           name: Netcore N30 Pro closed-source Wi-Fi ${{ env.BUILD_TAG }}
           generate_release_notes: false
           body: |
-            Netcore N30 Pro custom ImmortalWrt firmware.
+            Netcore N30 Pro custom ImmortalWrt firmware (minimal build).
 
             - Source: padavanonly/immortalwrt-mt798x-6.6 (`openwrt-24.10-6.6`)
             - Wi-Fi: MediaTek proprietary MT7981/MT7976 `mt_wifi`
             - LAN: 192.168.6.1
             - Initial root password: empty; set it immediately after first login
-            - Included: iStore, OpenClash with embedded Meta core, TurboACC/HNAT/WED, ttyd, Samba4/USB storage, nlbwmon, UPnP, file manager, Tailscale and kmod-tun
+            - Included: WireGuard, HomeProxy (sing-box), vlmcsd KMS, FRPS, ttyd web terminal
+            - Hardware acceleration: MTK HNAT/WED/WARP kernels, flow offloading enabled on first boot
+            - Removed: iStore, OpenClash, Samba4/USB storage, nlbwmon, UPnP, file manager, Tailscale
 
             Keep a known-good recovery method and the original firmware backup. Do not flash bootloader partitions with these system images.
           files: firmware/*
