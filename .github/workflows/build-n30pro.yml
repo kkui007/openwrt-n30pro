@@ -125,7 +125,6 @@ jobs:
             CONFIG_PACKAGE_luci-app-mtwifi-cfg \
             CONFIG_PACKAGE_luci-theme-argon \
             CONFIG_PACKAGE_kmod-mediatek_hnat \
-            CONFIG_PACKAGE_kmod-mtk_wed \
             CONFIG_PACKAGE_luci-app-turboacc-mtk \
             CONFIG_PACKAGE_kmod-wireguard \
             CONFIG_PACKAGE_wireguard-tools \
@@ -137,6 +136,10 @@ jobs:
             CONFIG_PACKAGE_luci-app-ttyd ; do
             require_config "$c"
           done
+
+          # acceleration symbols as resolved (kmod-mtk_wed is not a separate
+          # package in this tree; WED comes from kmod-warp + WED_HW_RRO_SUPPORT)
+          grep -E '^CONFIG_(PACKAGE_(kmod-warp|kmod-mediatek_hnat|luci-app-turboacc-mtk)|WED_HW_RRO_SUPPORT|MTK_WARP_V2)=' .config || true
 
           # must be disabled
           for c in \
